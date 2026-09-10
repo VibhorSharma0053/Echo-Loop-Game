@@ -1,0 +1,17 @@
+{
+  "name": "echo-loop",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "7.3.2",
+    "vite-plugin-singlefile": "2.3.0"
+  },
+  "description": "Echo Loop — a 2D puzzle-platformer where your actions are recorded and replayed as echoes. MVP: 10 levels, 2 chapters.",
+  "license": "MIT"
+}

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="data:," />
+    <title>Echo Loop</title>
+    <style>
+      :root {
+        --page-bg: #04060b;
+        --canvas-bg: #0a0f1a;
+        --canvas-edge: rgba(103, 232, 249, 0.14);
+        --ink: #5d6a7d;
+        --ink-strong: #c7d3e0;
+        --cyan: #22d3ee;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 10px;
+        overflow: hidden;
+        background:
+          radial-gradient(1200px 720px at 50% -12%, #0b1424 0%, transparent 62%),
+          var(--page-bg);
+        font-family:
+          ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+        color: var(--ink);
+        user-select: none;
+      }
+
+      /* Stage: canvas sits on a dark page, responsively scaled, centered. */
+      .stage {
+        display: grid;
+        justify-items: center;
+        gap: 16px;
+      }
+
+      /*
+       * Internal resolution stays fixed at 960x540 (game logic renders in
+       * those units). CSS scales the element to fit any viewport while
+       * preserving the 16:9 aspect ratio.
+       *
+       * The height budget subtracts ~96px for the caption line, its gap and
+       * the body padding; without that reserve, short/landscape windows
+       * (e.g. 1280x600) pushed the caption past the fold, where the body's
+       * `overflow: hidden` clipped it. Whichever of the two limits is
+       * smaller wins, so the canvas always fits both axes.
+       */
+      canvas#game {
+        display: block;
+        width: min(96vw, calc((100vh - 96px) * 16 / 9));
+        width: min(96vw, calc((100dvh - 96px) * 16 / 9));
+        min-width: 280px;
+        height: auto;
+        aspect-ratio: 16 / 9;
+        background: var(--canvas-bg);
+        border: 1px solid var(--canvas-edge);
+        border-radius: 10px;
+        box-shadow:
+          0 0 0 1px rgba(0, 0, 0, 0.6),
+          0 24px 90px rgba(0, 0, 0, 0.65),
+          0 0 72px rgba(34, 211, 238, 0.05);
+      }
+
+      .meta {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        max-width: 96vw;
+        text-align: center;
+        font-size: 11px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+
+      /* Narrow windows: shrink the caption rather than letting it dominate. */
+      @media (max-width: 700px) {
+        .meta {
+          font-size: 9px;
+          letter-spacing: 0.14em;
+        }
+      }
+
+      .meta .title {
+        color: var(--ink-strong);
+        font-weight: 600;
+      }
+
+      .meta .sep {
+        opacity: 0.45;
+      }
+
+      .pulse {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--cyan);
+        box-shadow: 0 0 10px var(--cyan);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage">
+      <canvas id="game" width="960" height="540"></canvas>
+      <p class="meta">
+        <span class="pulse" aria-hidden="true"></span>
+        <span class="title">echo&nbsp;loop</span>
+        <span class="sep">/</span>
+        <span>level <span id="level-label">1-1</span></span>
+        <span class="sep">/</span>
+        <span id="level-status">running</span>
+        <span class="sep">/</span>
+        <span id="sound-state">sound on</span>
+        <span class="sep">/</span>
+        <span>move &larr;&nbsp;&rarr; &middot; jump space &middot; R retry &middot; esc levels &middot; M mute</span>
+      </p>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
