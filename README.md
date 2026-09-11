@@ -53,6 +53,38 @@ let you through.
 Ratings are written to `localStorage` the instant the goal is reached, so
 **progress survives a page reload**.
 
+## Visual language
+
+Everything on screen is drawn procedurally with Canvas 2D — `roundRect`,
+`arc`, linear/radial gradients, `shadowBlur` glow and alpha. **There are no
+image files, sprite sheets or third-party assets anywhere in this project.**
+
+- **Player** — a rounded, gradient-lit near-white capsule with a soft cyan
+  halo and a small dart showing which way it faces. It squashes on landing
+  (harder the faster the fall) and stretches on takeoff. Echoes share the exact
+  same silhouette but are flat and translucent with **no glow at all**, so the
+  live player always reads as the one in front.
+- **Plates** — a dark housing with a raised, specular-lit cap that physically
+  sinks 5px when something stands on it and pops back when released. Amber
+  when idle, bright green with a stronger glow when held. Amber is now
+  reserved exclusively for "interactive button" (moving platforms use a cool
+  steel highlight) so plates never blend into ordinary geometry.
+- **Doors** — a steel frame with head and sill caps that stays visible in both
+  states, so a doorway always reads as a doorway. Closed: a red vertical
+  gradient shutter with mechanical panel lines and a slow ~2s "sealed" pulse.
+  Opening: the shutter *slides up out of the frame* over ~260ms, clipped to
+  the opening, revealing a dark shaft with a green glow on the frame edges.
+- **Goal** — a portal: a white-cyan-to-violet radial core, three
+  counter-rotating rings clipped to the mouth, a halo that breathes on a ~1.7s
+  cycle, and six rising motes.
+- **Link lines** — while a plate is held, a dashed line with a travelling mote
+  runs from it to the door it opens, making cause and effect obvious on
+  multi-switch levels. Drawn only while active, to keep the screen quiet.
+
+**The separation that matters:** all of this lives in `render()`. No physics,
+collision, echo recording or level data changed in this pass — see
+`render/VisualState.js` for how the smoothing stays outside the simulation.
+
 ## Audio
 
 **Every sound is synthesised at runtime with the native Web Audio API — there
@@ -224,6 +256,13 @@ npm run build    # outputs a self-contained dist/index.html
   keyboard never disagree about the highlighted item.
 - **`screens/*` + `render/ui.js`** — the level-select and level-complete
   screens, plus shared canvas primitives (panels, buttons, star glyphs).
+- **`render/entities.js` + `render/VisualState.js`** — the procedural artwork
+  for the player, echoes, plates, doors and goal portal, plus the render-only
+  animation state that drives it. `VisualState` *observes* logic state (a
+  door's `open` flag, a plate's `pressed` flag, the player's `grounded`/`vy`)
+  and smooths it for drawing; the simulation never reads it back, so collision
+  still flips on exactly the tick it always did — only the pixels ease. It
+  advances on real frame time, never on simulation ticks.
 - **`render/HUD.js` + `render/palette.js`** — all on-screen UI, drawn on top
   of the world every frame. The HUD is purely presentational: it reads a
   state snapshot and never mutates it, so it cannot affect the deterministic
@@ -332,6 +371,24 @@ intended plan, with no level beatable by a naive one-loop sprint in any
 direction; the level-select grid was verified to lay out 10 non-overlapping
 on-canvas tiles across two chapters.
 
+Phase 9 (art pass): every new drawing routine was rendered against a recording
+canvas that asserts save/restore balance, that no `shadowBlur` or `globalAlpha`
+leaks into the next draw (the classic Canvas performance trap), that no
+non-finite coordinate ever reaches the context, and that corner radii are
+clamped below half the box. Specifics checked: the player's 6–8px radius and
+8–12px glow, echoes having **zero** glow, the facing dart flipping across the
+centre line, the plate cap travelling exactly 5px, the door panel sliding
+upward under a clip, the frame drawing in both states, link lines appearing
+only while held, and the portal's rings counter-rotating over time. The
+decisive test runs the full simulation twice — once bare, once driving the
+whole renderer every 4th tick — and asserts the two position traces are
+**bit-identical**, proving the art pass cannot perturb echo replay; a separate
+check confirms door collision still flips while the panel is only ~20% through
+its visual slide. All 10 levels still solve on the same loop, with the same
+echo count and the same 3-star rating as before. Worst case measured (3 moving
+platforms, 2 active plates with link lines, open door, 2 echoes): 209 canvas
+ops per frame at 0.27ms of draw-call construction, max gameplay glow 14px.
+
 Phase 7 (audio): `AudioManager` was driven against a fake Web Audio
 implementation asserting the actual synthesis — the jump voice sweeps 220→440
 Hz with an exponential glide, the chime is two rising notes offset in time, the
@@ -387,6 +444,8 @@ echo-loop/
     render/
       Renderer.js       # clear() + drawRect(x, y, w, h, color)
       HUD.js            # loop timer ring, echo dots, rewind flash
+      entities.js       # procedural player/echo/plate/door/portal artwork
+      VisualState.js    # render-only tweens (squash, door slide, portal swirl)
       palette.js        # shared echo/UI colors (world + HUD agree)
       ui.js             # panels, buttons, star glyphs, text helpers
     screens/
@@ -602,6 +661,8 @@ array and it appears in the level select automatically.
 - [x] Phase 6 — moving platforms + 5 Chapter 2 levels
 - [x] Phase 7 — procedural audio, ambient pad, persisted mute
 - [x] Phase 8 — title screen, polish pass, production build, deploy docs
+- [x] Phase 9 — procedural art pass (player juice, button plates, framed
+      animated doors, portal goal) — rendering only, zero logic changes
 
 **v1.0.0 — the MVP is complete.** Deliberately out of scope (candidates for
 future work): hazards/spikes, echo variants, a level editor, leaderboards,

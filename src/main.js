@@ -12,7 +12,15 @@
  */
 import { Renderer } from "./render/Renderer.js";
 import { HUD } from "./render/HUD.js";
-import { echoGhost, UI } from "./render/palette.js";
+import { UI } from "./render/palette.js";
+import { VisualState } from "./render/VisualState.js";
+import {
+  drawCharacter,
+  drawSwitch,
+  drawLinkLine,
+  drawDoor,
+  drawGoalPortal,
+} from "./render/entities.js";
 import { GameLoop, FIXED_DT } from "./game/GameLoop.js";
 import { Input } from "./game/Input.js";
 import { Player } from "./game/Player.js";
@@ -48,19 +56,23 @@ const renderer = new Renderer(ctx);
 const WORLD = { width: canvas.width, height: canvas.height };
 const hud = new HUD(ctx, WORLD);
 
+/**
+ * Render-only animation state (door slides, plate presses, squash/stretch,
+ * portal swirl). Deliberately separate from the simulation — see
+ * render/VisualState.js.
+ */
+const visuals = new VisualState();
+
+/**
+ * World colours still owned by main.js. The player, echoes, plates, doors and
+ * goal now have richer procedural artwork in render/entities.js.
+ */
 const COLORS = {
   solid: "#525c6b",
-  plate: "#facc15",
-  platePressed: "#fef08a",
-  plateLiveOnly: "#fb923c",
-  doorClosed: "#ef4444",
-  doorOpen: "rgba(34, 197, 94, 0.3)",
-  doorFrame: "#22c55e",
-  goal: "rgba(45, 212, 191, 0.28)",
-  goalFrame: "#2dd4bf",
-  player: "#ffffff",
   platform: "#8595ad",
-  platformEdge: "#f59e0b",
+  // Cool steel highlight, NOT the old amber: amber now exclusively means
+  // "interactive button", so platforms must not borrow that colour.
+  platformEdge: "#cbd5e1",
 };
 
 // --- Game state -------------------------------------------------------------
@@ -315,6 +327,7 @@ function startLevel(index) {
 
   session = { level, player, loopManager, solved: false, index };
   echoFades = [];
+  visuals.reset();
   level.reset();
   level.updateSwitches(entities());
 
@@ -471,6 +484,7 @@ function render() {
   lastFrameMs = now;
   hud.update(frameDt);
   advanceEchoFades(frameDt);
+  visuals.update(frameDt, session);
 
   if (gameState === "menu") {
     mainMenu.update(frameDt);
@@ -507,39 +521,30 @@ function render() {
 /** Draw the level, echoes and player. */
 function drawWorld() {
   const { level, player, loopManager } = session;
+  const t = visuals.time;
   renderer.clear();
 
   for (const g of level.geometry) {
     renderer.drawRect(g.x, g.y, g.w, g.h, COLORS.solid);
   }
 
-  // Goal: translucent teal field with a bright frame.
-  const goal = level.goal;
-  renderer.drawRect(goal.x, goal.y, goal.w, goal.h, COLORS.goal);
-  renderer.drawRect(goal.x, goal.y, goal.w, 4, COLORS.goalFrame);
-  renderer.drawRect(goal.x, goal.y + goal.h - 4, goal.w, 4, COLORS.goalFrame);
-  renderer.drawRect(goal.x, goal.y, 4, goal.h, COLORS.goalFrame);
-  renderer.drawRect(goal.x + goal.w - 4, goal.y, 4, goal.h, COLORS.goalFrame);
+  // Goal portal, behind everything else so entities pass in front of it.
+  drawGoalPortal(renderer, level.goal, t, visuals.particles);
+
+  // Link lines sit under the plates and doors they connect.
+  for (const sw of level.switches) {
+    if (!sw.activatesDoorId) continue;
+    const press = visuals.platePress.get(sw.id) ?? 0;
+    const door = level.getDoor(sw.activatesDoorId);
+    if (door) drawLinkLine(renderer, sw, door, t, press);
+  }
 
   for (const sw of level.switches) {
-    const color = sw.pressed
-      ? COLORS.platePressed
-      : sw.echoesCanActivate
-        ? COLORS.plate
-        : COLORS.plateLiveOnly;
-    // Pressed plates visibly sink a couple of pixels.
-    const sink = sw.pressed ? 3 : 0;
-    renderer.drawRect(sw.x, sw.y + sink, sw.w, sw.h - sink, color);
+    drawSwitch(renderer, sw, visuals.platePress.get(sw.id) ?? 0, t);
   }
 
   for (const door of level.doors) {
-    if (door.open) {
-      renderer.drawRect(door.x, door.y, door.w, door.h, COLORS.doorOpen);
-      renderer.drawRect(door.x, door.y, door.w, 4, COLORS.doorFrame);
-      renderer.drawRect(door.x, door.y + door.h - 4, door.w, 4, COLORS.doorFrame);
-    } else {
-      renderer.drawRect(door.x, door.y, door.w, door.h, COLORS.doorClosed);
-    }
+    drawDoor(renderer, door, visuals.doorOpen.get(door.id) ?? (door.open ? 1 : 0), t);
   }
 
   // Moving platforms: steel decks with a warm top edge so they read as
@@ -551,25 +556,20 @@ function drawWorld() {
     renderer.drawRect(px, py, mp.w, 3, COLORS.platformEdge);
   }
 
-  // Echoes under the live player, so the player is never hidden. Colors come
+  // Echoes under the live player, so the player is never hidden. Colours come
   // from the shared palette, so each ghost matches its HUD dot exactly.
   for (const echo of loopManager.echoes) {
-    renderer.drawRect(
-      Math.round(echo.x),
-      Math.round(echo.y),
-      echo.w,
-      echo.h,
-      echoGhost(echo.index, echoFades[echo.index] ?? 1),
-    );
+    drawCharacter(renderer, echo, {
+      isEcho: true,
+      echoIndex: echo.index,
+      alpha: echoFades[echo.index] ?? 1,
+    });
   }
 
-  renderer.drawRect(
-    Math.round(player.x),
-    Math.round(player.y),
-    player.w,
-    player.h,
-    COLORS.player,
-  );
+  drawCharacter(renderer, player, {
+    facing: visuals.facing,
+    scale: visuals.playerScale,
+  });
 }
 
 // --- Go ---------------------------------------------------------------------

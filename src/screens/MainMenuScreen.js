@@ -11,7 +11,7 @@ import { drawPanel, drawButton, drawText } from "../render/ui.js";
 import { UI, echoGhost } from "../render/palette.js";
 import { getTotalStars } from "../storage/SaveData.js";
 
-export const VERSION = "v1.0.0";
+export const VERSION = "v1.1.0";
 
 export class MainMenuScreen {
   /**
