@@ -67,6 +67,14 @@ export class AudioManager {
     /** @type {{oscs: OscillatorNode[], lfo: OscillatorNode}|null} */
     this._pad = null;
 
+    this.menuMusic = typeof Audio !== "undefined" ? new Audio('/audio/menu-music.mp3') : null;
+    if (this.menuMusic) this.menuMusic.loop = true;
+    
+    this.actionMusic = typeof Audio !== "undefined" ? new Audio('/audio/action-music.mp3') : null;
+    if (this.actionMusic) this.actionMusic.loop = true;
+    
+    this._updateMusicVolume();
+
     /** Last start time per cue, for throttling. @type {Map<string, number>} */
     this._lastAt = new Map();
 
@@ -160,6 +168,7 @@ export class AudioManager {
   setMuted(muted) {
     this.muted = muted === true;
     this._applyMasterGain();
+    this._updateMusicVolume();
     return this.muted;
   }
 
@@ -172,6 +181,7 @@ export class AudioManager {
   setVolume(volume) {
     this.volume = Math.max(0, Math.min(1, volume));
     this._applyMasterGain();
+    this._updateMusicVolume();
     return this.volume;
   }
 
@@ -318,6 +328,37 @@ export class AudioManager {
         peak: 0.12,
       });
     });
+  }
+
+  // --- custom music controls ------------------------------------------------
+  
+  _updateMusicVolume() {
+    const vol = this.muted ? 0 : this.volume * 0.5;
+    if (this.menuMusic) this.menuMusic.volume = vol;
+    if (this.actionMusic) this.actionMusic.volume = vol;
+  }
+
+  playMenuMusic() {
+    if (!this.menuMusic) return;
+    if (this.actionMusic) {
+      this.actionMusic.pause();
+      this.actionMusic.currentTime = 0;
+    }
+    this.menuMusic.play().catch(() => {}); 
+  }
+
+  playActionMusic() {
+    if (!this.actionMusic) return;
+    if (this.menuMusic) this.menuMusic.pause();
+    this.actionMusic.play().catch(() => {});
+  }
+
+  stopAllMusic() {
+    if (this.menuMusic) this.menuMusic.pause();
+    if (this.actionMusic) {
+      this.actionMusic.pause();
+      this.actionMusic.currentTime = 0;
+    }
   }
 
   // --- ambient bed ----------------------------------------------------------

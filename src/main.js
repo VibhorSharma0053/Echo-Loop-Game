@@ -128,7 +128,8 @@ function advanceEchoFades(frameDt) {
 
 /** Elapsed simulated time this attempt, derived from ticks (deterministic). */
 function elapsedMs(loopManager, loopDurationTicks) {
-  const ticks = loopManager.loopIndex * loopDurationTicks + loopManager.currentTick;
+  const ticks =
+    loopManager.loopIndex * loopDurationTicks + loopManager.currentTick;
   return ticks * FIXED_DT * 1000;
 }
 
@@ -162,6 +163,7 @@ function openMainMenu() {
   session = null;
   input.clearHeldKeys();
   audio.stopAmbient();
+  audio.playMenuMusic();
   mainMenu.open();
   updateCaption();
 }
@@ -183,6 +185,7 @@ function openLevelSelect(focusIndex = 0) {
   session = null;
   input.clearHeldKeys();
   audio.stopAmbient(); // the bed belongs to gameplay only
+  audio.playMenuMusic();
   levelSelect.open(focusIndex);
   updateCaption();
 }
@@ -240,6 +243,7 @@ function completeLevel() {
   gameState = "complete";
   input.clearHeldKeys();
   // The bed steps aside so the fanfare lands cleanly.
+  audio.stopAllMusic();
   audio.stopAmbient();
   audio.solved();
   levelComplete.open({
@@ -297,7 +301,8 @@ function startLevel(index) {
       // --- audio cues (presentation only; never read back by the sim) ---
       // The live player is louder than echoes, so the ghosts stay secondary.
       if (player.jumpedThisTick) audio.jump(1);
-      else if (loopManager.echoes.some((e) => e.jumpedThisTick)) audio.jump(0.4);
+      else if (loopManager.echoes.some((e) => e.jumpedThisTick))
+        audio.jump(0.4);
       if (level.switches.some((sw) => sw.justPressed)) audio.switchOn();
 
       if (!session.solved && level.isGoalReached(player)) {
@@ -336,6 +341,7 @@ function startLevel(index) {
   // until released so it can't register as a jump on the very first tick.
   input.suppressHeldKeys();
   hud.triggerFlash(UI.accent);
+  audio.playActionMusic();
   audio.startAmbient();
   updateCaption();
 }
@@ -544,7 +550,12 @@ function drawWorld() {
   }
 
   for (const door of level.doors) {
-    drawDoor(renderer, door, visuals.doorOpen.get(door.id) ?? (door.open ? 1 : 0), t);
+    drawDoor(
+      renderer,
+      door,
+      visuals.doorOpen.get(door.id) ?? (door.open ? 1 : 0),
+      t,
+    );
   }
 
   // Moving platforms: steel decks with a warm top edge so they read as
